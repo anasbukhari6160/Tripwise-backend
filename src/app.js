@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-
+import weatherRoutes from "./routes/weather.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 
@@ -31,5 +31,5 @@ app.use(
 
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
-
+app.use("/api/weather", weatherRoutes);
 export default app;
