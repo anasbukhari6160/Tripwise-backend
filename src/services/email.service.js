@@ -261,3 +261,142 @@ export async function sendVerificationEmail(email, verificationCode, name) {
     throw new Error(error.message);
   }
 }
+export async function sendPasswordResetEmail(email, resetCode, name) {
+  if (process.env.EMAIL_MODE === "console") {
+    console.log(
+      `\n[TripWise DEV] Password reset code for ${email}: ${resetCode}\n`,
+    );
+
+    return;
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured.");
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const { error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: "Reset your TripWise password",
+
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <body
+          style="
+            margin: 0;
+            padding: 0;
+            background-color: #050805;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #f5f7f2;
+          "
+        >
+          <table
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            style="
+              background-color: #050805;
+              padding: 48px 16px;
+            "
+          >
+            <tr>
+              <td align="center">
+                <table
+                  width="100%"
+                  cellspacing="0"
+                  cellpadding="0"
+                  style="
+                    max-width: 560px;
+                    background-color: #0b1008;
+                    border: 1px solid #242d20;
+                    border-radius: 20px;
+                  "
+                >
+                  <tr>
+                    <td
+                      style="
+                        padding: 30px 38px;
+                        border-bottom: 1px solid #242d20;
+                      "
+                    >
+                      <div
+                        style="
+                          font-size: 23px;
+                          font-weight: 700;
+                          color: #ffffff;
+                        "
+                      >
+                        Trip<span style="color:#caff33;">Wise</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding: 42px 38px;">
+                      <p
+                        style="
+                          color: #caff33;
+                          font-size: 12px;
+                          font-weight: 700;
+                          letter-spacing: 1.6px;
+                        "
+                      >
+                        PASSWORD RESET
+                      </p>
+
+                      <h1
+                        style="
+                          color: #ffffff;
+                          font-size: 28px;
+                        "
+                      >
+                        Reset your password
+                      </h1>
+
+                      <p style="color:#a4ad9f;">
+                        Hi ${name || "there"},
+                      </p>
+
+                      <p style="color:#a4ad9f;">
+                        Use the code below to reset your TripWise password.
+                      </p>
+
+                      <h2
+                        style="
+                          text-align: center;
+                          color: #ffffff;
+                          letter-spacing: 10px;
+                          font-size: 30px;
+                        "
+                      >
+                        ${resetCode}
+                      </h2>
+
+                      <p
+                        style="
+                          text-align: center;
+                          color: #818b7c;
+                          font-size: 13px;
+                        "
+                      >
+                        This code expires in 10 minutes.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  });
+
+  if (error) {
+    console.error("[Resend API Error]:", error);
+    throw new Error(error.message);
+  }
+}

@@ -5,8 +5,10 @@ import pool from "../config/db.js";
 
 import { createUser, findUserByEmail } from "../db/user.queries.js";
 
-import { sendVerificationEmail } from "../services/email.service.js";
-
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "../services/email.service.js";
 export async function register(req, res) {
   try {
     let { name, email, password } = req.body;
@@ -379,6 +381,141 @@ export async function resendVerificationCode(req, res) {
     return res.status(500).json({
       success: false,
       message: "Unable to resend verification code.",
+    });
+  }
+}
+export async function forgotPassword(req, res) {
+  try {
+    let { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required.",
+      });
+    }
+
+    email = email.trim().toLowerCase();
+
+    const user = await findUserByEmail(email);
+
+    const responseMessage =
+      "If an account exists with this email, a reset code has been sent.";
+
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: responseMessage,
+      });
+    }
+
+    const resetCode = crypto.randomInt(100000, 1000000).toString();
+
+    const resetCodeHash = await bcrypt.hash(resetCode, 10);
+
+    const resetExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await pool.query(
+      `UPDATE users
+       SET
+         password_reset_code_hash = $1,
+         password_reset_expires_at = $2,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [resetCodeHash, resetExpiresAt, user.id],
+    );
+
+    await sendPasswordResetEmail(email, resetCode, user.name);
+
+    return res.status(200).json({
+      success: true,
+      message: responseMessage,
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to process password reset.",
+    });
+  }
+}
+export async function resetPassword(req, res) {
+  try {
+    let { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, verification code and new password are required.",
+      });
+    }
+
+    email = email.trim().toLowerCase();
+    code = code.toString().trim();
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
+
+    const user = await findUserByEmail(email);
+
+    if (
+      !user ||
+      !user.password_reset_code_hash ||
+      !user.password_reset_expires_at
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset code.",
+      });
+    }
+
+    if (new Date() > new Date(user.password_reset_expires_at)) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset code has expired.",
+      });
+    }
+
+    const codeMatches = await bcrypt.compare(
+      code,
+      user.password_reset_code_hash,
+    );
+
+    if (!codeMatches) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid reset code.",
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await pool.query(
+      `UPDATE users
+       SET
+         password_hash = $1,
+         password_reset_code_hash = NULL,
+         password_reset_expires_at = NULL,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [passwordHash, user.id],
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully.",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong.",
     });
   }
 }
