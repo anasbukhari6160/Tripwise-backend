@@ -16,4 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    verification_code_hash VARCHAR(255),
+    verification_expires_at TIMESTAMP,
 );
