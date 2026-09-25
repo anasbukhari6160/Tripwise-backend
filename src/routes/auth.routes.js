@@ -9,6 +9,7 @@ import {
   resendVerificationCode,
   forgotPassword,
   resetPassword,
+  googleLogin,
 } from "../controllers/auth.controller.js";
 
 const router = express.Router();
@@ -21,4 +22,5 @@ router.get("/me", getCurrentUser);
 router.post("/logout", logout);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
+router.post("/google", googleLogin);
 export default router;
