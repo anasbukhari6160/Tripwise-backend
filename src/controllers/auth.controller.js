@@ -2,13 +2,112 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 
 import pool from "../config/db.js";
-
+import { OAuth2Client } from "google-auth-library";
 import { createUser, findUserByEmail } from "../db/user.queries.js";
 
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
 } from "../services/email.service.js";
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+export async function googleLogin(req, res) {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: "Google credential is required.",
+      });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid Google account.",
+      });
+    }
+
+    const {
+      sub: googleId,
+      email,
+      name,
+      email_verified: emailVerified,
+    } = payload;
+
+    if (!email || !emailVerified) {
+      return res.status(401).json({
+        success: false,
+        message: "Google email could not be verified.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    let user = await findUserByEmail(normalizedEmail);
+
+    if (user) {
+      if (!user.google_id) {
+        const result = await pool.query(
+          `UPDATE users
+           SET
+             google_id = $1,
+             auth_provider = 'google',
+             is_verified = TRUE,
+             updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2
+           RETURNING *`,
+          [googleId, user.id],
+        );
+
+        user = result.rows[0];
+      }
+    } else {
+      const result = await pool.query(
+        `INSERT INTO users (
+          name,
+          email,
+          google_id,
+          auth_provider,
+          is_verified
+        )
+        VALUES ($1, $2, $3, 'google', TRUE)
+        RETURNING *`,
+        [name || "Google User", normalizedEmail, googleId],
+      );
+
+      user = result.rows[0];
+    }
+
+    req.session.userId = user.id;
+
+    return res.status(200).json({
+      success: true,
+      message: "Google sign-in successful.",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        plan: user.plan,
+        isVerified: user.is_verified,
+      },
+    });
+  } catch (error) {
+    console.error("Google login error:", error);
+
+    return res.status(401).json({
+      success: false,
+      message: "Google authentication failed.",
+    });
+  }
+}
 export async function register(req, res) {
   try {
     let { name, email, password } = req.body;
