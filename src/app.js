@@ -5,6 +5,7 @@ import weatherRoutes from "./routes/weather.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
+import savedRoutes from "./routes/saved.routes.js";
 const app = express();
 
 app.use(
@@ -33,4 +34,5 @@ app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/saved", savedRoutes);
 export default app;
