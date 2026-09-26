@@ -1,5 +1,7 @@
 function getWeatherCondition(code) {
-  if (code === 0) return "Clear sky";
+  if (code === 0) {
+    return "Clear sky";
+  }
 
   if ([1, 2].includes(code)) {
     return "Partly cloudy";
@@ -62,7 +64,6 @@ async function findLocation(city) {
 
   return data.results[0];
 }
-
 async function fetchForecast(latitude, longitude) {
   const weatherUrl =
     `https://api.open-meteo.com/v1/forecast` +
@@ -81,16 +82,7 @@ async function fetchForecast(latitude, longitude) {
 
   return response.json();
 }
-
-export async function getWeatherByCity(city) {
-  const location = await findLocation(city);
-
-  if (!location) {
-    return null;
-  }
-
-  const weather = await fetchForecast(location.latitude, location.longitude);
-
+function formatWeatherResponse(weather, location) {
   const forecast = weather.daily.time.map((date, index) => ({
     date,
 
@@ -110,9 +102,9 @@ export async function getWeatherByCity(city) {
     location: {
       name: location.name,
       country: location.country,
-      region: location.admin1 || null,
-      latitude: location.latitude,
-      longitude: location.longitude,
+      region: location.region || null,
+      latitude: Number(location.latitude),
+      longitude: Number(location.longitude),
       timezone: weather.timezone,
     },
 
@@ -132,4 +124,71 @@ export async function getWeatherByCity(city) {
 
     forecast,
   };
+}
+
+export async function getWeatherByCity(city) {
+  const location = await findLocation(city);
+
+  if (!location) {
+    return null;
+  }
+
+  const weather = await fetchForecast(location.latitude, location.longitude);
+
+  return formatWeatherResponse(weather, {
+    name: location.name,
+    country: location.country,
+    region: location.admin1 || null,
+    latitude: location.latitude,
+    longitude: location.longitude,
+  });
+}
+
+export async function getWeatherByCoordinates(
+  latitude,
+  longitude,
+  locationInfo,
+) {
+  const weather = await fetchForecast(latitude, longitude);
+
+  return formatWeatherResponse(weather, {
+    name: locationInfo.name,
+    country: locationInfo.country,
+    region: locationInfo.region || null,
+    latitude,
+    longitude,
+  });
+}
+
+export async function searchLocationSuggestions(query) {
+  const geocodingUrl =
+    `https://geocoding-api.open-meteo.com/v1/search` +
+    `?name=${encodeURIComponent(query)}` +
+    `&count=6` +
+    `&language=en` +
+    `&format=json`;
+
+  const response = await fetch(geocodingUrl);
+
+  if (!response.ok) {
+    throw new Error("Unable to search locations.");
+  }
+
+  const data = await response.json();
+
+  if (!data.results) {
+    return [];
+  }
+
+  return data.results.map((location) => ({
+    id: location.id,
+    name: location.name,
+    country: location.country,
+    countryCode: location.country_code || null,
+    region: location.admin1 || null,
+    district: location.admin2 || null,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    timezone: location.timezone || null,
+  }));
 }

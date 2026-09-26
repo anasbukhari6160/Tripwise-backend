@@ -27,3 +27,14 @@ CREATE TABLE IF NOT EXISTS users (
 
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS saved_destinations (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  city VARCHAR(100) NOT NULL,
+  country VARCHAR(100) NOT NULL,
+  latitude DECIMAL(10, 7),
+  longitude DECIMAL(10, 7),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(user_id, city, country)
+);
