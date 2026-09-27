@@ -9,7 +9,9 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
 } from "../services/email.service.js";
+
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 export async function googleLogin(req, res) {
   try {
     const { credential } = req.body;
@@ -56,14 +58,16 @@ export async function googleLogin(req, res) {
     if (user) {
       if (!user.google_id) {
         const result = await pool.query(
-          `UPDATE users
-           SET
-             google_id = $1,
-             auth_provider = 'google',
-             is_verified = TRUE,
-             updated_at = CURRENT_TIMESTAMP
-           WHERE id = $2
-           RETURNING *`,
+          `
+            UPDATE users
+            SET
+              google_id = $1,
+              auth_provider = 'google',
+              is_verified = TRUE,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+          `,
           [googleId, user.id],
         );
 
@@ -71,15 +75,17 @@ export async function googleLogin(req, res) {
       }
     } else {
       const result = await pool.query(
-        `INSERT INTO users (
-          name,
-          email,
-          google_id,
-          auth_provider,
-          is_verified
-        )
-        VALUES ($1, $2, $3, 'google', TRUE)
-        RETURNING *`,
+        `
+          INSERT INTO users (
+            name,
+            email,
+            google_id,
+            auth_provider,
+            is_verified
+          )
+          VALUES ($1, $2, $3, 'google', TRUE)
+          RETURNING *
+        `,
         [name || "Google User", normalizedEmail, googleId],
       );
 
@@ -95,7 +101,11 @@ export async function googleLogin(req, res) {
         id: user.id,
         name: user.name,
         email: user.email,
-        plan: user.plan,
+        plan: user.plan || "free",
+        subscription_status: user.subscription_status || "inactive",
+        subscription_current_period_end:
+          user.subscription_current_period_end || null,
+        cancel_at_period_end: user.cancel_at_period_end ?? false,
         isVerified: user.is_verified,
       },
     });
@@ -108,6 +118,7 @@ export async function googleLogin(req, res) {
     });
   }
 }
+
 export async function register(req, res) {
   try {
     let { name, email, password } = req.body;
@@ -206,7 +217,11 @@ export async function register(req, res) {
         id: user.id,
         name: user.name,
         email: user.email,
-        plan: user.plan,
+        plan: user.plan || "free",
+        subscription_status: user.subscription_status || "inactive",
+        subscription_current_period_end:
+          user.subscription_current_period_end || null,
+        cancel_at_period_end: user.cancel_at_period_end ?? false,
         isVerified: user.is_verified,
       },
     });
@@ -277,13 +292,15 @@ export async function verifyEmail(req, res) {
     }
 
     await pool.query(
-      `UPDATE users
-       SET
-         is_verified = TRUE,
-         verification_code_hash = NULL,
-         verification_expires_at = NULL,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1`,
+      `
+        UPDATE users
+        SET
+          is_verified = TRUE,
+          verification_code_hash = NULL,
+          verification_expires_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `,
       [user.id],
     );
 
@@ -348,7 +365,11 @@ export async function login(req, res) {
         id: user.id,
         name: user.name,
         email: user.email,
-        plan: user.plan,
+        plan: user.plan || "free",
+        subscription_status: user.subscription_status || "inactive",
+        subscription_current_period_end:
+          user.subscription_current_period_end || null,
+        cancel_at_period_end: user.cancel_at_period_end ?? false,
         isVerified: user.is_verified,
       },
     });
@@ -372,14 +393,19 @@ export async function getCurrentUser(req, res) {
     }
 
     const result = await pool.query(
-      `SELECT
-         id,
-         name,
-         email,
-         plan,
-         is_verified
-       FROM users
-       WHERE id = $1`,
+      `
+        SELECT
+          id,
+          name,
+          email,
+          plan,
+          is_verified,
+          subscription_status,
+          subscription_current_period_end,
+          cancel_at_period_end
+        FROM users
+        WHERE id = $1
+      `,
       [req.session.userId],
     );
 
@@ -394,7 +420,17 @@ export async function getCurrentUser(req, res) {
 
     return res.status(200).json({
       success: true,
-      user,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        plan: user.plan || "free",
+        subscription_status: user.subscription_status || "inactive",
+        subscription_current_period_end:
+          user.subscription_current_period_end || null,
+        cancel_at_period_end: user.cancel_at_period_end ?? false,
+        isVerified: user.is_verified,
+      },
     });
   } catch (error) {
     console.error("Current user error:", error);
@@ -423,6 +459,7 @@ export function logout(req, res) {
     });
   });
 }
+
 export async function resendVerificationCode(req, res) {
   try {
     let { email } = req.body;
@@ -461,12 +498,14 @@ export async function resendVerificationCode(req, res) {
     await sendVerificationEmail(email, verificationCode, user.name);
 
     await pool.query(
-      `UPDATE users
-       SET
-         verification_code_hash = $1,
-         verification_expires_at = $2,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3`,
+      `
+        UPDATE users
+        SET
+          verification_code_hash = $1,
+          verification_expires_at = $2,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `,
       [verificationCodeHash, verificationExpiresAt, user.id],
     );
 
@@ -483,6 +522,7 @@ export async function resendVerificationCode(req, res) {
     });
   }
 }
+
 export async function forgotPassword(req, res) {
   try {
     let { email } = req.body;
@@ -515,12 +555,14 @@ export async function forgotPassword(req, res) {
     const resetExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await pool.query(
-      `UPDATE users
-       SET
-         password_reset_code_hash = $1,
-         password_reset_expires_at = $2,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3`,
+      `
+        UPDATE users
+        SET
+          password_reset_code_hash = $1,
+          password_reset_expires_at = $2,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `,
       [resetCodeHash, resetExpiresAt, user.id],
     );
 
@@ -539,6 +581,7 @@ export async function forgotPassword(req, res) {
     });
   }
 }
+
 export async function resetPassword(req, res) {
   try {
     let { email, code, newPassword } = req.body;
@@ -595,13 +638,15 @@ export async function resetPassword(req, res) {
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
     await pool.query(
-      `UPDATE users
-       SET
-         password_hash = $1,
-         password_reset_code_hash = NULL,
-         password_reset_expires_at = NULL,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
+      `
+        UPDATE users
+        SET
+          password_hash = $1,
+          password_reset_code_hash = NULL,
+          password_reset_expires_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `,
       [passwordHash, user.id],
     );
 
