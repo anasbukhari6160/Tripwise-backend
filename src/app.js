@@ -1,13 +1,15 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-
+import photoRoutes from "./routes/photo.routes.js";
 import weatherRoutes from "./routes/weather.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import savedRoutes from "./routes/saved.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import locationRoutes from "./routes/location.routes.js";
+import tripRoutes from "./routes/trip.routes.js";
 
 import { handleStripeWebhook } from "./controllers/payment.controller.js";
 
@@ -50,5 +52,7 @@ app.use("/api/weather", weatherRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/saved", savedRoutes);
 app.use("/api/payments", paymentRoutes);
-
+app.use("/api/locations", locationRoutes);
+app.use("/api/trips", tripRoutes);
+app.use("/api/photos", photoRoutes);
 export default app;
