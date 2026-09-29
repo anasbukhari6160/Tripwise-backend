@@ -10,7 +10,7 @@ import savedRoutes from "./routes/saved.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import locationRoutes from "./routes/location.routes.js";
 import tripRoutes from "./routes/trip.routes.js";
-
+import contactRoutes from "./routes/contact.routes.js";
 import { handleStripeWebhook } from "./controllers/payment.controller.js";
 
 const app = express();
@@ -55,4 +55,5 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/trips", tripRoutes);
 app.use("/api/photos", photoRoutes);
+app.use("/api/contact", contactRoutes);
 export default app;
