@@ -359,3 +359,170 @@ export async function deleteTrip(userId, tripId) {
 
   return result.rows.length > 0;
 }
+export async function removeTripStop(userId, tripId, stopId) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    /* =====================================================
+       VERIFY TRIP OWNERSHIP
+    ===================================================== */
+
+    const ownershipResult = await client.query(
+      `
+          SELECT id
+          FROM trips
+          WHERE id = $1
+            AND user_id = $2
+          FOR UPDATE
+        `,
+      [tripId, userId],
+    );
+
+    if (ownershipResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      return {
+        ok: false,
+        reason: "TRIP_NOT_FOUND",
+      };
+    }
+
+    /* =====================================================
+       LOCK AND LOAD CURRENT STOPS
+    ===================================================== */
+
+    const stopsResult = await client.query(
+      `
+          SELECT
+            id,
+            position
+          FROM trip_stops
+          WHERE trip_id = $1
+          ORDER BY
+            position ASC,
+            id ASC
+          FOR UPDATE
+        `,
+      [tripId],
+    );
+
+    const stops = stopsResult.rows;
+
+    /* =====================================================
+       DO NOT ALLOW EMPTY TRIP
+    ===================================================== */
+
+    if (stops.length <= 1) {
+      await client.query("ROLLBACK");
+
+      return {
+        ok: false,
+        reason: "LAST_STOP",
+      };
+    }
+
+    /* =====================================================
+       VERIFY TARGET STOP
+    ===================================================== */
+
+    const targetExists = stops.some(
+      (stop) => Number(stop.id) === Number(stopId),
+    );
+
+    if (!targetExists) {
+      await client.query("ROLLBACK");
+
+      return {
+        ok: false,
+        reason: "STOP_NOT_FOUND",
+      };
+    }
+
+    /* =====================================================
+       DELETE TARGET STOP
+    ===================================================== */
+
+    await client.query(
+      `
+        DELETE FROM trip_stops
+        WHERE id = $1
+          AND trip_id = $2
+      `,
+      [stopId, tripId],
+    );
+
+    /* =====================================================
+       NORMALIZE POSITIONS
+
+       Example:
+       0, 1, 2, 3
+
+       remove position 1
+
+       becomes:
+       0, 1, 2
+    ===================================================== */
+
+    await client.query(
+      `
+        WITH ordered_stops AS (
+          SELECT
+            id,
+            ROW_NUMBER() OVER (
+              ORDER BY
+                position ASC,
+                id ASC
+            ) - 1 AS new_position
+          FROM trip_stops
+          WHERE trip_id = $1
+        )
+        UPDATE trip_stops AS stop
+        SET position =
+          ordered_stops.new_position
+        FROM ordered_stops
+        WHERE stop.id =
+          ordered_stops.id
+      `,
+      [tripId],
+    );
+
+    /* =====================================================
+       UPDATE TRIP TIMESTAMP
+    ===================================================== */
+
+    await client.query(
+      `
+        UPDATE trips
+        SET updated_at =
+          CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND user_id = $2
+      `,
+      [tripId, userId],
+    );
+
+    /* =====================================================
+       RETURN UPDATED TRIP
+    ===================================================== */
+
+    const trip = await getTripById(userId, tripId, client);
+
+    await client.query("COMMIT");
+
+    return {
+      ok: true,
+
+      removedStopId: Number(stopId),
+
+      trip,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    throw error;
+  } finally {
+    client.release();
+  }
+}
