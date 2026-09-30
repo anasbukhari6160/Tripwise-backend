@@ -18,6 +18,13 @@ import { handleStripeWebhook } from "./controllers/payment.controller.js";
 
 const app = express();
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "TripWise API is running",
+  });
+});
+
 /* =========================================================
    CORS
 ========================================================= */
