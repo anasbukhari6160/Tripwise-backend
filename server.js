@@ -5,18 +5,15 @@ import pool from "./src/config/db.js";
 
 const PORT = process.env.PORT || 3000;
 
-async function startServer() {
-  try {
-    await pool.query("SELECT NOW()");
-    console.log("PostgreSQL connected successfully");
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`TripWise API running on port ${PORT}`);
 
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`TripWise API running on port ${PORT}`);
+  pool
+    .query("SELECT NOW()")
+    .then(() => {
+      console.log("PostgreSQL connected successfully");
+    })
+    .catch((error) => {
+      console.error("PostgreSQL connection failed:", error);
     });
-  } catch (error) {
-    console.error("Database connection failed:", error);
-    process.exit(1);
-  }
-}
-
-startServer();
+});
