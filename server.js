@@ -8,14 +8,14 @@ const PORT = process.env.PORT || 3000;
 async function startServer() {
   try {
     await pool.query("SELECT NOW()");
-
     console.log("PostgreSQL connected successfully");
 
-    app.listen(PORT, () => {
-      console.log(`TripWise API running on http://localhost:${PORT}`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`TripWise API running on port ${PORT}`);
     });
   } catch (error) {
-    console.error("Database connection failed:", error.message);
+    console.error("Database connection failed:", error);
+    process.exit(1);
   }
 }
 
