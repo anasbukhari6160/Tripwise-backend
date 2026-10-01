@@ -29,7 +29,7 @@ export async function getWeather(req, res) {
       weather,
     });
   } catch (error) {
-    console.error("Weather API error:", error);
+    console.error("Weather API error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -56,7 +56,7 @@ export async function searchLocations(req, res) {
       locations,
     });
   } catch (error) {
-    console.error("Location search error:", error);
+    console.error("Location search error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -109,7 +109,7 @@ export async function getWeatherByLocation(req, res) {
       weather,
     });
   } catch (error) {
-    console.error("Coordinate weather error:", error);
+    console.error("Coordinate weather error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,

@@ -22,7 +22,7 @@ export async function searchLocations(query) {
     format: "json",
   });
 
-  const response = await fetch(`${GEOCODING_URL}?${params.toString()}`);
+  const response = await fetch(`${GEOCODING_URL}?${params.toString()}`, { signal: AbortSignal.timeout(10000) });
 
   if (!response.ok) {
     throw new Error("Unable to search destinations.");

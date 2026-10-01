@@ -40,7 +40,7 @@ export async function requirePro(req, res, next) {
 
     next();
   } catch (error) {
-    console.error("Pro authorization error:", error);
+    console.error("Pro authorization error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,

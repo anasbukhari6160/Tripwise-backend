@@ -221,3 +221,50 @@ ON trip_stops(
   trip_id,
   position
 );
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS password_change_code_hash VARCHAR(255),
+ADD COLUMN IF NOT EXISTS password_change_expires_at TIMESTAMP,
+ADD COLUMN IF NOT EXISTS pending_password_hash VARCHAR(255);
+
+
+-- Session storage for express-session via connect-pg-simple.
+-- The column names and types must match the adapter's expected table, which is
+-- what it looks for with SELECT to_regclass(...). Defining it here means the
+-- database role does not need CREATE permission at runtime.
+-- Equivalent standalone migration: migrations/001_session_and_rate_limit_tables.sql
+CREATE TABLE IF NOT EXISTS user_sessions (
+  sid VARCHAR NOT NULL,
+
+  sess JSON NOT NULL,
+
+  expire TIMESTAMP(6) NOT NULL,
+
+  CONSTRAINT user_sessions_pkey
+    PRIMARY KEY (sid)
+);
+
+
+CREATE INDEX IF NOT EXISTS IDX_user_sessions_expire
+ON user_sessions(expire);
+
+
+-- Rate limit counters for the unauthenticated auth endpoints.
+-- There is no runtime auto-creation for this table: without it every limiter
+-- fails open and these endpoints stay unprotected.
+-- Counters are kept in the database so they survive restarts and are shared
+-- across every application instance.
+CREATE TABLE IF NOT EXISTS auth_rate_limits (
+  rate_key TEXT PRIMARY KEY,
+
+  total_hits INTEGER
+    NOT NULL
+    DEFAULT 0,
+
+  reset_at TIMESTAMPTZ
+    NOT NULL
+);
+
+
+CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_reset_at
+ON auth_rate_limits(reset_at);

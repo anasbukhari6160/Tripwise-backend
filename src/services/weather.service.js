@@ -50,7 +50,7 @@ async function findLocation(city) {
     `&language=en` +
     `&format=json`;
 
-  const response = await fetch(geocodingUrl);
+  const response = await fetch(geocodingUrl, { signal: AbortSignal.timeout(10000) });
 
   if (!response.ok) {
     throw new Error("Unable to search for location.");
@@ -74,7 +74,7 @@ async function fetchForecast(latitude, longitude) {
     `&timezone=auto` +
     `&forecast_days=5`;
 
-  const response = await fetch(weatherUrl);
+  const response = await fetch(weatherUrl, { signal: AbortSignal.timeout(10000) });
 
   if (!response.ok) {
     throw new Error("Unable to retrieve weather information.");
@@ -168,7 +168,7 @@ export async function searchLocationSuggestions(query) {
     `&language=en` +
     `&format=json`;
 
-  const response = await fetch(geocodingUrl);
+  const response = await fetch(geocodingUrl, { signal: AbortSignal.timeout(10000) });
 
   if (!response.ok) {
     throw new Error("Unable to search locations.");
