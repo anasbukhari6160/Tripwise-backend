@@ -1,14 +1,9 @@
+import { sessionCookieName, sessionCookieOptions } from "../config/session.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import { Resend } from "resend";
+import { sendEmail, escapeHtml } from "../services/email.service.js";
 
 import pool from "../config/db.js";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-/* =========================================================
-   GET PROFILE
-========================================================= */
 
 export async function getProfile(req, res) {
   try {
@@ -49,7 +44,7 @@ export async function getProfile(req, res) {
       profile: result.rows[0],
     });
   } catch (error) {
-    console.error("Get profile error:", error);
+    console.error("Get profile error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -57,10 +52,6 @@ export async function getProfile(req, res) {
     });
   }
 }
-
-/* =========================================================
-   UPDATE PROFILE
-========================================================= */
 
 export async function updateProfile(req, res) {
   try {
@@ -127,7 +118,7 @@ export async function updateProfile(req, res) {
       profile: result.rows[0],
     });
   } catch (error) {
-    console.error("Update profile error:", error);
+    console.error("Update profile error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -135,10 +126,6 @@ export async function updateProfile(req, res) {
     });
   }
 }
-
-/* =========================================================
-   REQUEST PASSWORD CHANGE
-========================================================= */
 
 export async function requestPasswordChange(req, res) {
   try {
@@ -165,10 +152,6 @@ export async function requestPasswordChange(req, res) {
     const confirmPassword =
       typeof body.confirmPassword === "string" ? body.confirmPassword : "";
 
-    /* =========================
-       REQUIRED FIELDS
-    ========================= */
-
     if (!currentPassword || !newPassword || !confirmPassword) {
       return res.status(400).json({
         success: false,
@@ -176,10 +159,6 @@ export async function requestPasswordChange(req, res) {
           "Current password, new password and confirmation are required.",
       });
     }
-
-    /* =========================
-       PASSWORD VALIDATION
-    ========================= */
 
     if (newPassword.length < 6) {
       return res.status(400).json({
@@ -202,10 +181,6 @@ export async function requestPasswordChange(req, res) {
       });
     }
 
-    /* =========================
-       LOAD USER
-    ========================= */
-
     const result = await pool.query(
       `
         SELECT
@@ -213,6 +188,9 @@ export async function requestPasswordChange(req, res) {
           name,
           email,
           password_hash,
+          password_change_code_hash,
+          password_change_expires_at,
+          pending_password_hash,
           auth_provider
         FROM users
         WHERE id = $1
@@ -230,10 +208,6 @@ export async function requestPasswordChange(req, res) {
 
     const user = result.rows[0];
 
-    /* =========================
-       GOOGLE ACCOUNT
-    ========================= */
-
     if (user.auth_provider === "google" && !user.password_hash) {
       return res.status(400).json({
         success: false,
@@ -250,10 +224,6 @@ export async function requestPasswordChange(req, res) {
       });
     }
 
-    /* =========================
-       CURRENT PASSWORD
-    ========================= */
-
     const currentPasswordMatches = await bcrypt.compare(
       currentPassword,
       user.password_hash,
@@ -266,10 +236,6 @@ export async function requestPasswordChange(req, res) {
       });
     }
 
-    /* =========================
-       PREVENT SAME PASSWORD
-    ========================= */
-
     const samePassword = await bcrypt.compare(newPassword, user.password_hash);
 
     if (samePassword) {
@@ -279,10 +245,6 @@ export async function requestPasswordChange(req, res) {
       });
     }
 
-    /* =========================
-       CREATE OTP
-    ========================= */
-
     const verificationCode = crypto.randomInt(100000, 1000000).toString();
 
     const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
@@ -290,10 +252,6 @@ export async function requestPasswordChange(req, res) {
     const pendingPasswordHash = await bcrypt.hash(newPassword, 10);
 
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    /* =========================
-       STORE TEMPORARY CHANGE
-    ========================= */
 
     await pool.query(
       `
@@ -308,12 +266,7 @@ export async function requestPasswordChange(req, res) {
       [verificationCodeHash, expiresAt, pendingPasswordHash, userId],
     );
 
-    /* =========================
-       SEND EMAIL
-    ========================= */
-
-    const emailResult = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "TripWise <onboarding@resend.dev>",
+    await sendEmail({
 
       to: user.email,
 
@@ -341,7 +294,7 @@ export async function requestPasswordChange(req, res) {
             </h2>
 
             <p>
-              Hi ${user.name},
+              Hi ${escapeHtml(user.name)},
             </p>
 
             <p>
@@ -387,35 +340,23 @@ export async function requestPasswordChange(req, res) {
             </p>
           </div>
         `,
-    });
-
-    if (emailResult.error) {
-      console.error("Resend password email error:", emailResult.error);
-
+    }).catch(async (error) => {
       await pool.query(
-        `
-          UPDATE users
-          SET
-            password_change_code_hash = NULL,
-            password_change_expires_at = NULL,
-            pending_password_hash = NULL
-          WHERE id = $1
-        `,
-        [userId],
+        `UPDATE users SET password_change_code_hash = $1,
+          password_change_expires_at = $2, pending_password_hash = $3
+          WHERE id = $4 AND password_change_code_hash = $5`,
+        [user.password_change_code_hash, user.password_change_expires_at,
+          user.pending_password_hash, userId, verificationCodeHash],
       );
-
-      return res.status(500).json({
-        success: false,
-        message: "Unable to send verification email.",
-      });
-    }
+      throw error;
+    });
 
     return res.status(200).json({
       success: true,
       message: "Verification code sent to your registered email.",
     });
   } catch (error) {
-    console.error("Request password change error:", error);
+    console.error("Request password change error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -423,10 +364,6 @@ export async function requestPasswordChange(req, res) {
     });
   }
 }
-
-/* =========================================================
-   VERIFY PASSWORD CHANGE
-========================================================= */
 
 export async function verifyPasswordChange(req, res) {
   try {
@@ -446,10 +383,6 @@ export async function verifyPasswordChange(req, res) {
 
     const code = typeof body.code === "string" ? body.code.trim() : "";
 
-    /* =========================
-       VALIDATE CODE
-    ========================= */
-
     if (!code) {
       return res.status(400).json({
         success: false,
@@ -463,10 +396,6 @@ export async function verifyPasswordChange(req, res) {
         message: "Verification code must contain 6 digits.",
       });
     }
-
-    /* =========================
-       LOAD PENDING REQUEST
-    ========================= */
 
     const result = await pool.query(
       `
@@ -501,10 +430,6 @@ export async function verifyPasswordChange(req, res) {
       });
     }
 
-    /* =========================
-       EXPIRATION
-    ========================= */
-
     const expirationTime = new Date(user.password_change_expires_at).getTime();
 
     if (Number.isNaN(expirationTime) || expirationTime < Date.now()) {
@@ -527,10 +452,6 @@ export async function verifyPasswordChange(req, res) {
       });
     }
 
-    /* =========================
-       VERIFY OTP
-    ========================= */
-
     const codeMatches = await bcrypt.compare(
       code,
       user.password_change_code_hash,
@@ -543,10 +464,6 @@ export async function verifyPasswordChange(req, res) {
         message: "Invalid verification code.",
       });
     }
-
-    /* =========================
-       COMMIT PASSWORD CHANGE
-    ========================= */
 
     await pool.query(
       `
@@ -572,7 +489,7 @@ export async function verifyPasswordChange(req, res) {
       message: "Password changed successfully.",
     });
   } catch (error) {
-    console.error("Verify password change error:", error);
+    console.error("Verify password change error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -580,10 +497,6 @@ export async function verifyPasswordChange(req, res) {
     });
   }
 }
-
-/* =========================================================
-   DELETE PROFILE
-========================================================= */
 
 export async function deleteProfile(req, res) {
   try {
@@ -614,7 +527,7 @@ export async function deleteProfile(req, res) {
 
     req.session.destroy((sessionError) => {
       if (sessionError) {
-        console.error("Delete account session error:", sessionError);
+        console.error("Delete account session error:", { name: sessionError?.name, code: sessionError?.code });
 
         return res.status(500).json({
           success: false,
@@ -622,7 +535,7 @@ export async function deleteProfile(req, res) {
         });
       }
 
-      res.clearCookie("connect.sid");
+      res.clearCookie(sessionCookieName, sessionCookieOptions);
 
       return res.status(200).json({
         success: true,
@@ -630,7 +543,7 @@ export async function deleteProfile(req, res) {
       });
     });
   } catch (error) {
-    console.error("Delete profile error:", error);
+    console.error("Delete profile error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,

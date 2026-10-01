@@ -20,10 +20,6 @@ function createRecoveryError(message, code, status = 400) {
   return error;
 }
 
-/* =========================================================
-   CLASSIFY RECOVERY ACTION
-========================================================= */
-
 export function classifyRecoveryAction(action) {
   if (!action || typeof action !== "object") {
     return {
@@ -126,10 +122,6 @@ export function classifyRecoveryAction(action) {
   }
 }
 
-/* =========================================================
-   ATTACH APPLICATION METADATA
-========================================================= */
-
 export function attachApplicationMetadata(recoveryPlan) {
   if (!recoveryPlan || typeof recoveryPlan !== "object") {
     return recoveryPlan;
@@ -168,10 +160,6 @@ export function attachApplicationMetadataToPlans(recoveryPlans = []) {
   return recoveryPlans.map(attachApplicationMetadata);
 }
 
-/* =========================================================
-   APPLY RECOVERY
-========================================================= */
-
 export async function applyRecoveryAction({ userId, tripId, action }) {
   if (!action || typeof action !== "object") {
     throw createRecoveryError(
@@ -185,10 +173,6 @@ export async function applyRecoveryAction({ userId, tripId, action }) {
   if (!classification.canApply) {
     throw createRecoveryError(classification.reason, "RECOVERY_NOT_APPLICABLE");
   }
-
-  /*
-   * Only SKIP_STOP is currently supported.
-   */
 
   if (action.type !== "SKIP_STOP") {
     throw createRecoveryError(

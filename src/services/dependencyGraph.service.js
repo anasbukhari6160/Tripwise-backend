@@ -1,19 +1,4 @@
-/* =========================================================
-   TRIPWISE
-   TRIP DEPENDENCY GRAPH SERVICE
 
-   Converts an existing TripWise trip into a deterministic
-   graph that can be used by the resilience / stress-test
-   engine.
-
-   Current TripWise model:
-   Trip
-     └── ordered stops[]
-========================================================= */
-
-/* =========================================================
-   DATE HELPERS
-========================================================= */
 
 function parseDate(value) {
   if (!value) {
@@ -53,10 +38,6 @@ function differenceInDays(start, end) {
   return Math.max(0, Math.ceil(hours / 24));
 }
 
-/* =========================================================
-   NORMALIZE STOP
-========================================================= */
-
 function createStopNode(stop, index) {
   return {
     id: String(stop.id ?? `stop-${index + 1}`),
@@ -88,10 +69,6 @@ function createStopNode(stop, index) {
     dependencies: [],
   };
 }
-
-/* =========================================================
-   CREATE SEQUENTIAL EDGE
-========================================================= */
 
 function createTravelEdge(currentStop, nextStop) {
   const availableHours = differenceInHours(
@@ -132,10 +109,6 @@ function createTravelEdge(currentStop, nextStop) {
   };
 }
 
-/* =========================================================
-   GRAPH CONFLICT DETECTION
-========================================================= */
-
 function detectGraphConflicts(edges) {
   return edges
     .filter((edge) => edge.status === "conflict")
@@ -156,10 +129,6 @@ function detectGraphConflicts(edges) {
       availableHours: edge.availableHours,
     }));
 }
-
-/* =========================================================
-   BUILD DEPENDENCY GRAPH
-========================================================= */
 
 export function buildTripDependencyGraph(trip) {
   if (!trip || typeof trip !== "object") {

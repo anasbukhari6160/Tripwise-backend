@@ -9,9 +9,6 @@ function formatDateOnly(value) {
     return null;
   }
 
-  /*
-   * PostgreSQL may already return a DATE as YYYY-MM-DD.
-   */
   if (typeof value === "string") {
     const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
@@ -20,9 +17,6 @@ function formatDateOnly(value) {
     }
   }
 
-  /*
-   * Handle Date objects safely using UTC values.
-   */
   if (value instanceof Date) {
     const year = value.getUTCFullYear();
 
@@ -365,10 +359,6 @@ export async function removeTripStop(userId, tripId, stopId) {
   try {
     await client.query("BEGIN");
 
-    /* =====================================================
-       VERIFY TRIP OWNERSHIP
-    ===================================================== */
-
     const ownershipResult = await client.query(
       `
           SELECT id
@@ -389,10 +379,6 @@ export async function removeTripStop(userId, tripId, stopId) {
       };
     }
 
-    /* =====================================================
-       LOCK AND LOAD CURRENT STOPS
-    ===================================================== */
-
     const stopsResult = await client.query(
       `
           SELECT
@@ -410,10 +396,6 @@ export async function removeTripStop(userId, tripId, stopId) {
 
     const stops = stopsResult.rows;
 
-    /* =====================================================
-       DO NOT ALLOW EMPTY TRIP
-    ===================================================== */
-
     if (stops.length <= 1) {
       await client.query("ROLLBACK");
 
@@ -422,10 +404,6 @@ export async function removeTripStop(userId, tripId, stopId) {
         reason: "LAST_STOP",
       };
     }
-
-    /* =====================================================
-       VERIFY TARGET STOP
-    ===================================================== */
 
     const targetExists = stops.some(
       (stop) => Number(stop.id) === Number(stopId),
@@ -440,10 +418,6 @@ export async function removeTripStop(userId, tripId, stopId) {
       };
     }
 
-    /* =====================================================
-       DELETE TARGET STOP
-    ===================================================== */
-
     await client.query(
       `
         DELETE FROM trip_stops
@@ -452,18 +426,6 @@ export async function removeTripStop(userId, tripId, stopId) {
       `,
       [stopId, tripId],
     );
-
-    /* =====================================================
-       NORMALIZE POSITIONS
-
-       Example:
-       0, 1, 2, 3
-
-       remove position 1
-
-       becomes:
-       0, 1, 2
-    ===================================================== */
 
     await client.query(
       `
@@ -488,10 +450,6 @@ export async function removeTripStop(userId, tripId, stopId) {
       [tripId],
     );
 
-    /* =====================================================
-       UPDATE TRIP TIMESTAMP
-    ===================================================== */
-
     await client.query(
       `
         UPDATE trips
@@ -502,10 +460,6 @@ export async function removeTripStop(userId, tripId, stopId) {
       `,
       [tripId, userId],
     );
-
-    /* =====================================================
-       RETURN UPDATED TRIP
-    ===================================================== */
 
     const trip = await getTripById(userId, tripId, client);
 

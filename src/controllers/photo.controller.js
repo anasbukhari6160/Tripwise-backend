@@ -38,7 +38,7 @@ export async function getDestinationPhotos(req, res) {
       photos,
     });
   } catch (error) {
-    console.error("Destination photo error:", error);
+    console.error("Destination photo error:", { name: error?.name, code: error?.code });
 
     return res.status(502).json({
       success: false,

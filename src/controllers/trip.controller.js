@@ -49,10 +49,6 @@ function parseCoordinate(value) {
 function validateTrip(data) {
   const errors = [];
 
-  /*
-   * req.body may theoretically be undefined,
-   * null, an array, etc.
-   */
   const payload =
     data && typeof data === "object" && !Array.isArray(data) ? data : {};
 
@@ -221,10 +217,6 @@ function validateTrip(data) {
     });
   }
 
-  /*
-   * Make sure destination dates follow
-   * the itinerary order.
-   */
   for (let index = 1; index < normalizedStops.length; index += 1) {
     const previous = normalizedStops[index - 1];
 
@@ -269,7 +261,7 @@ export async function getTrips(req, res) {
       trips,
     });
   } catch (error) {
-    console.error("Get trips error:", error);
+    console.error("Get trips error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -301,7 +293,7 @@ export async function getTrip(req, res) {
       trip,
     });
   } catch (error) {
-    console.error("Get trip error:", error);
+    console.error("Get trip error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -334,7 +326,7 @@ export async function createTripHandler(req, res) {
       trip,
     });
   } catch (error) {
-    console.error("Create trip error:", error);
+    console.error("Create trip error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -388,7 +380,7 @@ export async function updateTripHandler(req, res) {
       trip,
     });
   } catch (error) {
-    console.error("Update trip error:", error);
+    console.error("Update trip error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -422,7 +414,7 @@ export async function deleteTripHandler(req, res) {
       message: "Trip deleted successfully.",
     });
   } catch (error) {
-    console.error("Delete trip error:", error);
+    console.error("Delete trip error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,

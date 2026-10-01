@@ -1,17 +1,15 @@
 import Exa from "exa-js";
 
+import { env } from "../config/env.js";
+
 const CACHE_TTL_MS = 1000 * 60 * 10;
 
 const MAX_CACHE_ENTRIES = 50;
 
 const groundingCache = new Map();
 
-/* =========================================================
-   EXA CLIENT
-========================================================= */
-
 function getExaClient() {
-  const apiKey = process.env.EXA_API_KEY;
+  const apiKey = env.EXA_API_KEY;
 
   if (!apiKey) {
     const error = new Error("Exa API key is not configured.");
@@ -26,19 +24,11 @@ function getExaClient() {
   return new Exa(apiKey);
 }
 
-/* =========================================================
-   NORMALIZE QUERY
-========================================================= */
-
 function normalizeQuery(query) {
   return String(query || "")
     .trim()
     .replace(/\s+/g, " ");
 }
-
-/* =========================================================
-   SHOULD THIS QUESTION USE WEB GROUNDING?
-========================================================= */
 
 export function shouldGroundTravelQuery(query, messages = []) {
   const cleanQuery = normalizeQuery(query);
@@ -63,16 +53,8 @@ export function shouldGroundTravelQuery(query, messages = []) {
 
   const userMessages = messages.filter((message) => message.role === "user");
 
-  /*
-   * Ground the first substantial travel
-   * question by default.
-   */
   return userMessages.length <= 1;
 }
-
-/* =========================================================
-   CACHE
-========================================================= */
 
 function getCachedResult(query) {
   const cached = groundingCache.get(query);
@@ -102,10 +84,6 @@ function setCachedResult(query, value) {
     value,
   });
 }
-
-/* =========================================================
-   FORMAT EXA RESULTS FOR GROQ
-========================================================= */
 
 function formatGroundingContext(results) {
   if (!Array.isArray(results) || results.length === 0) {
@@ -152,10 +130,6 @@ ${blocks.join("\n")}
 END_RETRIEVED_TRAVEL_CONTEXT
 `;
 }
-
-/* =========================================================
-   EXA SEARCH
-========================================================= */
 
 export async function searchTravelContext(query) {
   const cleanQuery = normalizeQuery(query);
@@ -212,7 +186,7 @@ export async function searchTravelContext(query) {
 
     return value;
   } catch (error) {
-    console.error("Exa grounding error:", error);
+    console.error("Exa grounding error:", { name: error?.name, code: error?.code });
 
     const groundingError = new Error(
       "Travel information lookup is temporarily unavailable.",

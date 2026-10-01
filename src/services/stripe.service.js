@@ -1,4 +1,5 @@
 import stripe from "../config/stripe.js";
+import { env } from "../config/env.js";
 
 export async function createStripeCustomer(user) {
   const customer = await stripe.customers.create({
@@ -13,15 +14,11 @@ export async function createStripeCustomer(user) {
 }
 
 export async function createCheckoutSession({ userId, customerId }) {
-  if (!process.env.STRIPE_PRICE_ID) {
+  if (!env.STRIPE_PRICE_ID) {
     throw new Error("STRIPE_PRICE_ID is missing.");
   }
 
-  if (!process.env.FRONTEND_URL) {
-    throw new Error("FRONTEND_URL is missing.");
-  }
-
-  const frontendUrl = process.env.FRONTEND_URL.replace(/\/$/, "");
+  const frontendUrl = env.FRONTEND_ORIGIN;
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -32,7 +29,7 @@ export async function createCheckoutSession({ userId, customerId }) {
 
     line_items: [
       {
-        price: process.env.STRIPE_PRICE_ID,
+        price: env.STRIPE_PRICE_ID,
         quantity: 1,
       },
     ],

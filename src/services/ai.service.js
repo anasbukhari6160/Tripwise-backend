@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 
+import { env } from "../config/env.js";
 import TRIPWISE_SYSTEM_PROMPT from "../prompts/tripwiseSystemPrompt.js";
 
 import {
@@ -7,12 +8,8 @@ import {
   shouldGroundTravelQuery,
 } from "./travelGrounding.service.js";
 
-/* =========================================================
-   GROQ CLIENT
-========================================================= */
-
 function getGroqClient() {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = env.GROQ_API_KEY;
 
   if (!apiKey) {
     const error = new Error("Groq API key is not configured.");
@@ -26,12 +23,10 @@ function getGroqClient() {
   return new OpenAI({
     apiKey,
     baseURL: "https://api.groq.com/openai/v1",
+    timeout: 30000,
+    maxRetries: 0,
   });
 }
-
-/* =========================================================
-   SANITIZE MESSAGES
-========================================================= */
 
 function sanitizeMessages(messages = []) {
   if (!Array.isArray(messages)) {
@@ -54,10 +49,6 @@ function sanitizeMessages(messages = []) {
     }));
 }
 
-/* =========================================================
-   GET LATEST USER MESSAGE
-========================================================= */
-
 function getLatestUserMessage(messages) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index].role === "user") {
@@ -67,10 +58,6 @@ function getLatestUserMessage(messages) {
 
   return "";
 }
-
-/* =========================================================
-   SAFE FALLBACK
-========================================================= */
 
 function getGroundingFallback() {
   return {
@@ -84,10 +71,6 @@ function getGroundingFallback() {
     sources: [],
   };
 }
-
-/* =========================================================
-   TRIPWISE AI CHAT
-========================================================= */
 
 export async function chatWithTripWise(messages) {
   const cleanMessages = sanitizeMessages(messages);
@@ -115,15 +98,11 @@ export async function chatWithTripWise(messages) {
     hasResults: false,
   };
 
-  /* =======================================================
-     WEB GROUNDING
-  ======================================================= */
-
   if (needsGrounding) {
     try {
       grounding = await searchTravelContext(latestUserMessage);
     } catch (error) {
-      console.error("Travel grounding unavailable:", error);
+      console.error("Travel grounding unavailable:", { name: error?.name, code: error?.code });
 
       return getGroundingFallback();
     }
@@ -132,10 +111,6 @@ export async function chatWithTripWise(messages) {
       return getGroundingFallback();
     }
   }
-
-  /* =======================================================
-     GROQ GENERATION
-  ======================================================= */
 
   try {
     const groq = getGroqClient();
@@ -177,7 +152,7 @@ ${grounding.context}
       : TRIPWISE_SYSTEM_PROMPT;
 
     const response = await groq.responses.create({
-      model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
+      model: env.GROQ_MODEL || "openai/gpt-oss-20b",
 
       instructions,
 
@@ -210,7 +185,7 @@ ${grounding.context}
       sources: grounding.sources,
     };
   } catch (error) {
-    console.error("TripWise AI service error:", error);
+    console.error("TripWise AI service error:", { name: error?.name, code: error?.code });
 
     if (error.status) {
       throw error;

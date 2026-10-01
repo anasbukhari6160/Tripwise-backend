@@ -1,3 +1,5 @@
+import { env } from "../config/env.js";
+
 const PEXELS_SEARCH_URL = "https://api.pexels.com/v1/search";
 
 function normalizePhoto(photo) {
@@ -16,7 +18,7 @@ function normalizePhoto(photo) {
 }
 
 async function requestPexels(query) {
-  const apiKey = process.env.PEXELS_API_KEY;
+  const apiKey = env.PEXELS_API_KEY;
 
   if (!apiKey) {
     throw new Error("PEXELS_API_KEY is not configured.");
@@ -30,6 +32,7 @@ async function requestPexels(query) {
   });
 
   const response = await fetch(`${PEXELS_SEARCH_URL}?${params.toString()}`, {
+    signal: AbortSignal.timeout(10000),
     headers: {
       Authorization: apiKey,
     },

@@ -59,7 +59,7 @@ export async function getSavedDestinations(req, res) {
       canSaveMore: isPro || count < FREE_SAVED_LIMIT,
     });
   } catch (error) {
-    console.error("Get saved destinations error:", error);
+    console.error("Get saved destinations error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -204,7 +204,7 @@ export async function saveDestination(req, res) {
       destination: result.rows[0],
     });
   } catch (error) {
-    console.error("Save destination error:", error);
+    console.error("Save destination error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -254,7 +254,7 @@ export async function deleteSavedDestination(req, res) {
       message: "Destination removed successfully.",
     });
   } catch (error) {
-    console.error("Delete saved destination error:", error);
+    console.error("Delete saved destination error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,

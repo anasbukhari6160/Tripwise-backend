@@ -10,10 +10,6 @@ function validTripId(value) {
   return Number.isInteger(id) && id > 0;
 }
 
-/* =========================================================
-   STRESS TEST
-========================================================= */
-
 export async function stressTestTrip(req, res) {
   try {
     const tripId = Number(req.params.tripId);
@@ -28,7 +24,7 @@ export async function stressTestTrip(req, res) {
       });
     }
 
-    const { scenarios } = req.body;
+    const { scenarios } = req.body ?? {};
 
     if (!Array.isArray(scenarios)) {
       return res.status(400).json({
@@ -87,21 +83,17 @@ export async function stressTestTrip(req, res) {
 
     return res.status(200).json(report);
   } catch (error) {
-    console.error("Trip resilience stress-test error:", error);
+    console.error("Trip resilience stress-test error:", { name: error?.name, code: error?.code });
 
     return res.status(error.status || 500).json({
       success: false,
 
-      message: error.message || "Unable to stress-test this trip.",
+      message: error.status < 500 ? error.message : "Unable to stress-test this trip.",
 
       code: error.code || "RESILIENCE_TEST_FAILED",
     });
   }
 }
-
-/* =========================================================
-   APPLY RECOVERY
-========================================================= */
 
 export async function applyTripRecovery(req, res) {
   try {
@@ -118,10 +110,6 @@ export async function applyTripRecovery(req, res) {
     }
 
     const { confirmed, action } = req.body || {};
-
-    /*
-     * Explicit approval is mandatory.
-     */
 
     if (confirmed !== true) {
       return res.status(400).json({
@@ -153,12 +141,12 @@ export async function applyTripRecovery(req, res) {
       trip: result.trip,
     });
   } catch (error) {
-    console.error("Apply trip recovery error:", error);
+    console.error("Apply trip recovery error:", { name: error?.name, code: error?.code });
 
     return res.status(error.status || 500).json({
       success: false,
 
-      message: error.message || "Unable to apply this recovery.",
+      message: error.status < 500 ? error.message : "Unable to apply this recovery.",
 
       code: error.code || "RECOVERY_APPLICATION_FAILED",
     });

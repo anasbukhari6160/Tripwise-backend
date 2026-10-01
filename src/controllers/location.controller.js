@@ -32,7 +32,7 @@ export async function searchDestinations(req, res) {
       locations,
     });
   } catch (error) {
-    console.error("Destination search error:", error);
+    console.error("Destination search error:", { name: error?.name, code: error?.code });
 
     return res.status(502).json({
       success: false,

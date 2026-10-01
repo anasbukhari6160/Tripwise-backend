@@ -1,4 +1,5 @@
 import stripe from "../config/stripe.js";
+import { env } from "../config/env.js";
 
 import {
   createStripeCustomer,
@@ -81,13 +82,18 @@ export async function createCheckout(req, res) {
       sessionId: session.id,
     });
   } catch (error) {
-    console.error("Create checkout error:", error);
+    console.error("Create checkout error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
       message: "Unable to create checkout session.",
     });
   }
+}
+
+function subscriptionPeriodEnd(subscription) {
+  const periodEnd = subscription.items?.data?.[0]?.current_period_end ?? subscription.current_period_end;
+  return periodEnd ? new Date(periodEnd * 1000) : null;
 }
 
 async function syncSubscription(subscription) {
@@ -102,9 +108,7 @@ async function syncSubscription(subscription) {
 
   const plan = proStatuses.includes(subscription.status) ? "pro" : "free";
 
-  const periodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
-    : null;
+  const periodEnd = subscriptionPeriodEnd(subscription);
 
   await pool.query(
     `
@@ -129,13 +133,6 @@ async function syncSubscription(subscription) {
     ],
   );
 
-  console.log(
-    "Stripe subscription synced:",
-    subscription.id,
-    subscription.status,
-    "user:",
-    userId,
-  );
 }
 
 async function syncSubscriptionFromId(subscriptionId) {
@@ -227,7 +224,7 @@ export async function verifyCheckoutSession(req, res) {
       subscriptionStatus: user?.subscription_status || "inactive",
     });
   } catch (error) {
-    console.error("Verify checkout session error:", error);
+    console.error("Verify checkout session error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -307,14 +304,12 @@ export async function cancelSubscription(req, res) {
       success: true,
       alreadyScheduled: false,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      currentPeriodEnd: subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000)
-        : null,
+      currentPeriodEnd: subscriptionPeriodEnd(subscription),
       message:
         "Your TripWise Pro subscription will cancel at the end of the current billing period.",
     });
   } catch (error) {
-    console.error("Cancel subscription error:", error);
+    console.error("Cancel subscription error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
@@ -323,16 +318,27 @@ export async function cancelSubscription(req, res) {
   }
 }
 export async function handleStripeWebhook(req, res) {
+  const requestId = req.requestId || "unknown";
   const signature = req.headers["stripe-signature"];
 
   if (!signature) {
-    return res.status(400).send("Missing Stripe signature.");
+    return res.status(400).json({
+      success: false,
+      status: "error",
+      message: "Missing Stripe signature.",
+      requestId,
+    });
   }
 
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  if (!env.STRIPE_WEBHOOK_SECRET) {
     console.error("STRIPE_WEBHOOK_SECRET is missing.");
 
-    return res.status(500).send("Webhook configuration error.");
+    return res.status(500).json({
+      success: false,
+      status: "error",
+      message: "Webhook configuration error.",
+      requestId,
+    });
   }
 
   let event;
@@ -341,10 +347,10 @@ export async function handleStripeWebhook(req, res) {
     event = stripe.webhooks.constructEvent(
       req.body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET,
+      env.STRIPE_WEBHOOK_SECRET,
     );
   } catch (error) {
-    console.error("Stripe webhook verification failed:", error.message);
+    console.error("Stripe webhook verification failed:", { name: error?.name, code: error?.code });
 
     return res.status(400).send("Invalid webhook signature.");
   }
@@ -382,8 +388,9 @@ export async function handleStripeWebhook(req, res) {
       case "invoice.payment_failed": {
         const invoice = event.data.object;
 
-        if (invoice.subscription) {
-          await syncSubscriptionFromId(invoice.subscription);
+        const subscriptionId = invoice.parent?.subscription_details?.subscription || invoice.subscription;
+        if (subscriptionId) {
+          await syncSubscriptionFromId(typeof subscriptionId === "string" ? subscriptionId : subscriptionId.id);
         }
 
         break;
@@ -393,11 +400,13 @@ export async function handleStripeWebhook(req, res) {
         break;
     }
 
+    // Stripe only checks the HTTP status here, but keeps its own `received`
+    // acknowledgement shape instead of the shared success/message envelope.
     return res.status(200).json({
       received: true,
     });
   } catch (error) {
-    console.error("Stripe webhook processing error:", error);
+    console.error("Stripe webhook processing error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       received: false,
@@ -477,7 +486,7 @@ export async function reactivateSubscription(req, res) {
       message: "Your TripWise Pro subscription has been reactivated.",
     });
   } catch (error) {
-    console.error("Reactivate subscription error:", error);
+    console.error("Reactivate subscription error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,
