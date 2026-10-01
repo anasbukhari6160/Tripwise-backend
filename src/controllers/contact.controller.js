@@ -65,7 +65,7 @@ export async function submitContactMessage(req, res) {
       message: "Your message has been sent successfully.",
     });
   } catch (error) {
-    console.error("Contact controller error:", error);
+    console.error("Contact controller error:", { name: error?.name, code: error?.code });
 
     return res.status(500).json({
       success: false,

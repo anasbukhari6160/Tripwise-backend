@@ -1,18 +1,4 @@
-/* =========================================================
-   TRIPWISE
-   RESILIENCE SCENARIO SERVICE
 
-   Simulates disruptions against a trip dependency graph.
-
-   Important:
-   - Does NOT modify the original trip.
-   - Does NOT modify the dependency graph.
-   - Produces deterministic impact data.
-========================================================= */
-
-/* =========================================================
-   SCENARIO TYPES
-========================================================= */
 
 export const SCENARIO_TYPES = {
   WEATHER_DISRUPTION: "WEATHER_DISRUPTION",
@@ -23,10 +9,6 @@ export const SCENARIO_TYPES = {
 
   REDUCED_DAY_TIME: "REDUCED_DAY_TIME",
 };
-
-/* =========================================================
-   VALIDATION HELPERS
-========================================================= */
 
 function validateGraph(graph) {
   if (
@@ -60,10 +42,6 @@ function validateScenario(scenario) {
     throw error;
   }
 }
-
-/* =========================================================
-   GRAPH HELPERS
-========================================================= */
 
 function findNode(graph, nodeId) {
   return graph.nodes.find((node) => String(node.id) === String(nodeId));
@@ -99,10 +77,6 @@ function requireTargetNode(graph, targetNodeId) {
   return node;
 }
 
-/* =========================================================
-   NUMBER HELPERS
-========================================================= */
-
 function normalizePositiveNumber(value, fallback) {
   const number = Number(value);
 
@@ -112,10 +86,6 @@ function normalizePositiveNumber(value, fallback) {
 
   return number;
 }
-
-/* =========================================================
-   SEVERITY HELPERS
-========================================================= */
 
 function getWeatherSeverity(lostHours) {
   if (lostHours >= 12) {
@@ -153,10 +123,6 @@ function getReducedTimeSeverity(lostHours) {
   return "low";
 }
 
-/* =========================================================
-   WEATHER DISRUPTION
-========================================================= */
-
 function simulateWeatherDisruption(graph, scenario) {
   const node = requireTargetNode(graph, scenario.targetNodeId);
 
@@ -193,10 +159,6 @@ function simulateWeatherDisruption(graph, scenario) {
   };
 }
 
-/* =========================================================
-   ARRIVAL DELAY
-========================================================= */
-
 function simulateArrivalDelay(graph, scenario) {
   const node = requireTargetNode(graph, scenario.targetNodeId);
 
@@ -221,12 +183,6 @@ function simulateArrivalDelay(graph, scenario) {
       message: `Arrival at ${node.locationName} is delayed by ${delayHours} hours.`,
     },
   ];
-
-  /*
-     If this stop has an outgoing dependency,
-     the delay can reduce the available transition
-     window before the next destination.
-  */
 
   if (outgoingEdge && outgoingEdge.availableHours !== null) {
     const remainingHours = outgoingEdge.availableHours - delayHours;
@@ -282,21 +238,7 @@ function simulateArrivalDelay(graph, scenario) {
   };
 }
 
-/* =========================================================
-   ACTIVITY / STOP UNAVAILABLE
-========================================================= */
-
 function simulateActivityUnavailable(graph, scenario) {
-  /*
-     Current TripWise dependency graph contains destination
-     stops rather than individual activity nodes.
-
-     Therefore, for the current implementation this scenario
-     treats the selected destination stop as unavailable.
-
-     When activity-level itinerary records are added later,
-     this same scenario type can target activity nodes.
-  */
 
   const node = requireTargetNode(graph, scenario.targetNodeId);
 
@@ -324,10 +266,6 @@ function simulateActivityUnavailable(graph, scenario) {
     },
   };
 }
-
-/* =========================================================
-   REDUCED DAY TIME
-========================================================= */
 
 function simulateReducedDayTime(graph, scenario) {
   const node = requireTargetNode(graph, scenario.targetNodeId);
@@ -381,10 +319,6 @@ function simulateReducedDayTime(graph, scenario) {
   };
 }
 
-/* =========================================================
-   SIMULATION ROUTER
-========================================================= */
-
 function runScenario(graph, scenario) {
   switch (scenario.type) {
     case SCENARIO_TYPES.WEATHER_DISRUPTION:
@@ -408,10 +342,6 @@ function runScenario(graph, scenario) {
     }
   }
 }
-
-/* =========================================================
-   PUBLIC API
-========================================================= */
 
 export function simulateTripScenario(graph, scenario) {
   validateGraph(graph);
@@ -438,10 +368,6 @@ export function simulateTripScenario(graph, scenario) {
     simulatedAt: new Date().toISOString(),
   };
 }
-
-/* =========================================================
-   MULTIPLE SCENARIOS
-========================================================= */
 
 export function simulateTripScenarios(graph, scenarios = []) {
   validateGraph(graph);

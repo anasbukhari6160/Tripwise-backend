@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # OS files
 .DS_Store
+
+# Local database exports
+*.dump

@@ -1,24 +1,10 @@
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-function escapeHtml(value = "") {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+import { env } from "../config/env.js";
+import { sendEmail, escapeHtml } from "./email.service.js";
 
 export async function sendContactEmail({ name, email, subject, message }) {
-  const receiverEmail = process.env.CONTACT_RECEIVER_EMAIL;
+  const receiverEmail = env.CONTACT_RECEIVER_EMAIL;
 
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is not configured.");
-  }
-
-  if (!receiverEmail) {
+if (!receiverEmail) {
     throw new Error("CONTACT_RECEIVER_EMAIL is not configured.");
   }
 
@@ -30,8 +16,7 @@ export async function sendContactEmail({ name, email, subject, message }) {
 
   const currentYear = new Date().getFullYear();
 
-  const { data, error } = await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL || "TripWise <onboarding@resend.dev>",
+  const data = await sendEmail({
 
     to: [receiverEmail],
 
@@ -445,11 +430,5 @@ Travel smarter. Plan better.
     `.trim(),
   });
 
-  if (error) {
-    console.error("Resend contact email error:", error);
-
-    throw new Error("Unable to send contact message.");
-  }
-
-  return data;
+return data;
 }

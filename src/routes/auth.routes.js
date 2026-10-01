@@ -1,26 +1,44 @@
 import express from "express";
 
 import {
+  forgotPasswordLimiter,
+  googleLoginLimiter,
+  loginLimiter,
+  registerLimiter,
+  resendVerificationLimiter,
+  resetPasswordLimiter,
+  verifyEmailLimiter,
+} from "../middleware/rateLimit.js";
+import {
+  forgotPassword,
   getCurrentUser,
+  googleLogin,
   login,
   logout,
   register,
-  verifyEmail,
   resendVerificationCode,
-  forgotPassword,
   resetPassword,
-  googleLogin,
+  verifyEmail,
 } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/verify-email", verifyEmail);
-router.post("/resend-verification", resendVerificationCode);
-router.post("/login", login);
-router.get("/me", getCurrentUser);
+router.post("/register", registerLimiter, register);
+
+router.post("/login", loginLimiter, login);
+
+router.post("/google", googleLoginLimiter, googleLogin);
+
 router.post("/logout", logout);
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password", resetPassword);
-router.post("/google", googleLogin);
+
+router.get("/me", getCurrentUser);
+
+router.post("/verify-email", verifyEmailLimiter, verifyEmail);
+
+router.post("/resend-verification", resendVerificationLimiter, resendVerificationCode);
+
+router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
+
+router.post("/reset-password", resetPasswordLimiter, resetPassword);
+
 export default router;

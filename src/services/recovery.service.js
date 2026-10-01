@@ -1,19 +1,4 @@
-/* =========================================================
-   TRIPWISE
-   RECOVERY PLAN SERVICE
 
-   Converts simulated resilience impacts into recovery
-   suggestions.
-
-   Important:
-   - Does NOT modify the real trip.
-   - Does NOT write to PostgreSQL.
-   - Produces preview-only recovery actions.
-========================================================= */
-
-/* =========================================================
-   RECOVERY ACTION TYPES
-========================================================= */
 
 export const RECOVERY_ACTION_TYPES = {
   ABSORB_DELAY: "ABSORB_DELAY",
@@ -32,10 +17,6 @@ export const RECOVERY_ACTION_TYPES = {
 
   MANUAL_REVIEW: "MANUAL_REVIEW",
 };
-
-/* =========================================================
-   VALIDATION
-========================================================= */
 
 function validateGraph(graph) {
   if (
@@ -67,10 +48,6 @@ function validateScenarioResult(scenarioResult) {
   }
 }
 
-/* =========================================================
-   GRAPH HELPERS
-========================================================= */
-
 function findNode(graph, nodeId) {
   return graph.nodes.find((node) => String(node.id) === String(nodeId));
 }
@@ -99,10 +76,6 @@ function findOutgoingEdge(graph, nodeId) {
   return graph.edges.find((edge) => String(edge.from) === String(nodeId));
 }
 
-/* =========================================================
-   PRIORITY
-========================================================= */
-
 function severityToPriority(severity) {
   switch (severity) {
     case "high":
@@ -118,10 +91,6 @@ function severityToPriority(severity) {
       return 4;
   }
 }
-
-/* =========================================================
-   ACTION FACTORY
-========================================================= */
 
 function createAction({
   type,
@@ -152,10 +121,6 @@ function createAction({
   };
 }
 
-/* =========================================================
-   WEATHER RECOVERY
-========================================================= */
-
 function createWeatherRecovery(graph, scenarioResult) {
   const node = findNode(graph, scenarioResult.targetNodeId);
 
@@ -169,12 +134,6 @@ function createWeatherRecovery(graph, scenarioResult) {
     node.stayDurationDays !== null ? node.stayDurationDays * 24 : null;
 
   const actions = [];
-
-  /*
-     If the destination has enough overall stay time,
-     the disruption can potentially be absorbed by
-     redistributing time within the same stop.
-  */
 
   if (estimatedStayHours !== null && estimatedStayHours > lostHours) {
     actions.push(
@@ -217,10 +176,6 @@ function createWeatherRecovery(graph, scenarioResult) {
   return actions;
 }
 
-/* =========================================================
-   ARRIVAL DELAY RECOVERY
-========================================================= */
-
 function createArrivalDelayRecovery(graph, scenarioResult) {
   const node = findNode(graph, scenarioResult.targetNodeId);
 
@@ -235,11 +190,6 @@ function createArrivalDelayRecovery(graph, scenarioResult) {
   const nextNode = findNextNode(graph, node.id);
 
   const actions = [];
-
-  /*
-     No next destination means the delay cannot create
-     a downstream trip-sequence conflict.
-  */
 
   if (!outgoingEdge || !nextNode) {
     actions.push(
@@ -287,10 +237,6 @@ function createArrivalDelayRecovery(graph, scenarioResult) {
 
   const remainingHours = outgoingEdge.availableHours - delayHours;
 
-  /*
-     Enough time remains after the delay.
-  */
-
   if (remainingHours > 3) {
     actions.push(
       createAction({
@@ -314,11 +260,6 @@ function createArrivalDelayRecovery(graph, scenarioResult) {
 
     return actions;
   }
-
-  /*
-     Transition is still technically possible,
-     but the buffer is very small.
-  */
 
   if (remainingHours >= 0) {
     actions.push(
@@ -363,11 +304,6 @@ function createArrivalDelayRecovery(graph, scenarioResult) {
 
     return actions;
   }
-
-  /*
-     Negative remaining time means the delay creates
-     an actual schedule conflict.
-  */
 
   const conflictHours = Math.abs(remainingHours);
 
@@ -414,10 +350,6 @@ function createArrivalDelayRecovery(graph, scenarioResult) {
   return actions;
 }
 
-/* =========================================================
-   UNAVAILABLE STOP RECOVERY
-========================================================= */
-
 function createUnavailableStopRecovery(graph, scenarioResult) {
   const node = findNode(graph, scenarioResult.targetNodeId);
 
@@ -463,12 +395,6 @@ function createUnavailableStopRecovery(graph, scenarioResult) {
     }),
   );
 
-  /*
-     If the unavailable stop sits between two destinations,
-     TripWise can suggest connecting those destinations
-     directly.
-  */
-
   if (previousNode && nextNode) {
     actions.push(
       createAction({
@@ -491,10 +417,6 @@ function createUnavailableStopRecovery(graph, scenarioResult) {
 
   return actions;
 }
-
-/* =========================================================
-   REDUCED TIME RECOVERY
-========================================================= */
 
 function createReducedTimeRecovery(graph, scenarioResult) {
   const node = findNode(graph, scenarioResult.targetNodeId);
@@ -570,10 +492,6 @@ function createReducedTimeRecovery(graph, scenarioResult) {
   return actions;
 }
 
-/* =========================================================
-   SCENARIO RECOVERY ROUTER
-========================================================= */
-
 function createRecoveryActions(graph, scenarioResult) {
   switch (scenarioResult.type) {
     case "WEATHER_DISRUPTION":
@@ -605,10 +523,6 @@ function createRecoveryActions(graph, scenarioResult) {
       ];
   }
 }
-
-/* =========================================================
-   PUBLIC RECOVERY PLAN
-========================================================= */
 
 export function generateRecoveryPlan(graph, scenarioResult) {
   validateGraph(graph);
@@ -651,10 +565,6 @@ export function generateRecoveryPlan(graph, scenarioResult) {
     generatedAt: new Date().toISOString(),
   };
 }
-
-/* =========================================================
-   MULTIPLE RECOVERY PLANS
-========================================================= */
 
 export function generateRecoveryPlans(graph, scenarioResults = []) {
   validateGraph(graph);

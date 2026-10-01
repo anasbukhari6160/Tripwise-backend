@@ -4,31 +4,6 @@ import { simulateTripScenarios } from "./scenario.service.js";
 
 import { generateRecoveryPlans } from "./recovery.service.js";
 
-/* =========================================================
-   TRIPWISE
-   TRIP RESILIENCE SERVICE
-
-   Central orchestration layer for the resilience engine.
-
-   Responsibilities:
-   - Build dependency graph
-   - Simulate disruption scenarios
-   - Generate recovery plans
-   - Calculate resilience score
-   - Produce one stress-test report
-
-   Important:
-   - Does NOT modify the real trip.
-   - Does NOT write to PostgreSQL.
-========================================================= */
-
-/* =========================================================
-   SCORE CONFIGURATION
-
-   This is a transparent heuristic score.
-   We can tune these values later after testing.
-========================================================= */
-
 const SCORE_CONFIG = {
   BASE_SCORE: 100,
 
@@ -51,10 +26,6 @@ const SCORE_CONFIG = {
     "review-required": 0,
   },
 };
-
-/* =========================================================
-   VALIDATION
-========================================================= */
 
 function validateTrip(trip) {
   if (!trip || typeof trip !== "object") {
@@ -98,10 +69,6 @@ function validateScenarios(scenarios) {
   }
 }
 
-/* =========================================================
-   SCORE HELPERS
-========================================================= */
-
 function clampScore(score) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -119,10 +86,6 @@ function getRecoveryBonus(recoveryPlan) {
 
   return SCORE_CONFIG.RECOVERY_BONUS[action.feasibility] || 0;
 }
-
-/* =========================================================
-   INDIVIDUAL SCENARIO SCORE
-========================================================= */
 
 function calculateScenarioPenalty(scenarioResult, recoveryPlan) {
   const severityPenalty = getSeverityPenalty(scenarioResult.severity);
@@ -142,17 +105,8 @@ function calculateScenarioPenalty(scenarioResult, recoveryPlan) {
   );
 }
 
-/* =========================================================
-   OVERALL RESILIENCE SCORE
-========================================================= */
-
 function calculateResilienceScore({ graph, scenarioResults, recoveryPlans }) {
   let score = SCORE_CONFIG.BASE_SCORE;
-
-  /*
-     Existing schedule problems already weaken the trip
-     before simulated disruptions are applied.
-  */
 
   const graphPenalty =
     graph.conflicts.length * SCORE_CONFIG.GRAPH_CONFLICT_PENALTY;
@@ -192,10 +146,6 @@ function calculateResilienceScore({ graph, scenarioResults, recoveryPlans }) {
   };
 }
 
-/* =========================================================
-   RISK LEVEL
-========================================================= */
-
 function getRiskLevel(score) {
   if (score >= 85) {
     return "low";
@@ -211,10 +161,6 @@ function getRiskLevel(score) {
 
   return "critical";
 }
-
-/* =========================================================
-   RESILIENCE LABEL
-========================================================= */
 
 function getResilienceLabel(score) {
   if (score >= 85) {
@@ -232,16 +178,8 @@ function getResilienceLabel(score) {
   return "highly-fragile";
 }
 
-/* =========================================================
-   RISK EXTRACTION
-========================================================= */
-
 function buildRiskList({ graph, scenarioResults }) {
   const risks = [];
-
-  /*
-     Existing trip schedule conflicts.
-  */
 
   graph.conflicts.forEach((conflict) => {
     risks.push({
@@ -258,10 +196,6 @@ function buildRiskList({ graph, scenarioResults }) {
       message: conflict.message,
     });
   });
-
-  /*
-     Risks produced by simulated disruptions.
-  */
 
   scenarioResults.forEach((scenario) => {
     scenario.impacts.forEach((impact) => {
@@ -288,10 +222,6 @@ function buildRiskList({ graph, scenarioResults }) {
   return risks;
 }
 
-/* =========================================================
-   RISK COUNTS
-========================================================= */
-
 function summarizeRisks(risks) {
   const summary = {
     total: risks.length,
@@ -311,10 +241,6 @@ function summarizeRisks(risks) {
 
   return summary;
 }
-
-/* =========================================================
-   RECOVERY SUMMARY
-========================================================= */
 
 function summarizeRecoveryPlans(recoveryPlans) {
   const actionCount = recoveryPlans.reduce(
@@ -343,50 +269,21 @@ function summarizeRecoveryPlans(recoveryPlans) {
   };
 }
 
-/* =========================================================
-   PRIMARY STRESS TEST
-========================================================= */
-
 export function runTripStressTest(trip, scenarios) {
   validateTrip(trip);
 
   validateScenarios(scenarios);
 
-  /*
-     STEP 1
-     Convert trip into dependency graph.
-  */
-
   const graph = buildTripDependencyGraph(trip);
-
-  /*
-     STEP 2
-     Run requested disruption scenarios.
-  */
 
   const scenarioResults = simulateTripScenarios(graph, scenarios);
 
-  /*
-     STEP 3
-     Generate recovery previews.
-  */
-
   const recoveryPlans = generateRecoveryPlans(graph, scenarioResults);
-
-  /*
-     STEP 4
-     Build complete risk list.
-  */
 
   const risks = buildRiskList({
     graph,
     scenarioResults,
   });
-
-  /*
-     STEP 5
-     Calculate resilience score.
-  */
 
   const scoreResult = calculateResilienceScore({
     graph,
@@ -395,11 +292,6 @@ export function runTripStressTest(trip, scenarios) {
   });
 
   const resilienceScore = scoreResult.score;
-
-  /*
-     STEP 6
-     Produce final report.
-  */
 
   return {
     success: true,
